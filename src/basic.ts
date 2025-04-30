@@ -1,5 +1,3 @@
-import { parseBasic } from "tiny-ts-parser";
-
 type Type = { tag: "Boolean" } | { tag: "Number" } | {
   tag: "Func";
   params: Param[];
@@ -113,7 +111,12 @@ export function typecheck(t: Term, tyEnv: TypeEnv): Type {
       return funcTy.retType;
     }
     case "seq":
-    case "const":
-      throw new Error("not implemented yet");
+      typecheck(t.body, tyEnv);
+      return typecheck(t.rest, tyEnv);
+    case "const": {
+      const ty = typecheck(t.init, tyEnv);
+      const newTyEnv = { ...tyEnv, [t.name]: ty };
+      return typecheck(t.rest, newTyEnv);
+    }
   }
 }

@@ -4,7 +4,9 @@ import { typecheck } from "./basic.ts";
 
 Deno.test("typecheck anonymous function returns number", () => {
   const actual = typecheck(parseBasic("(x: boolean) => 42"), {});
-  expect(actual.tag).toBe("Func");
+  if (actual.tag !== "Func") {
+    throw new Error("Expected Func");
+  }
   expect(actual.params[0].name).toBe("x");
   expect(actual.params[0].type.tag).toBe("Boolean");
   expect(actual.retType.tag).toBe("Number");
@@ -12,7 +14,9 @@ Deno.test("typecheck anonymous function returns number", () => {
 
 Deno.test("typecheck anonymous function returns arg", () => {
   const actual = typecheck(parseBasic("(x: number) => x"), {});
-  expect(actual.tag).toBe("Func");
+  if (actual.tag !== "Func") {
+    throw new Error("Expected Func");
+  }
   expect(actual.params[0].name).toBe("x");
   expect(actual.params[0].type.tag).toBe("Number");
   expect(actual.retType.tag).toBe("Number");
@@ -20,7 +24,9 @@ Deno.test("typecheck anonymous function returns arg", () => {
 
 Deno.test("typecheck function with params is function", () => {
   const actual = typecheck(parseBasic("(f: (x:number) => number) => 1"), {});
-  expect(actual.tag).toBe("Func");
+  if (actual.tag !== "Func") {
+    throw new Error("Expected Func");
+  }
   expect(actual.params[0].name).toBe("f");
   expect(actual.params[0].type.tag).toBe("Func");
   expect(actual.retType.tag).toBe("Number");

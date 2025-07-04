@@ -88,6 +88,66 @@ export function simplifyType(ty: Type): Type {
   }
 }
 
+function typeEqNaive(
+  ty1: Type,
+  ty2: Type,
+  map: Record<string, string>,
+): boolean {
+  switch (ty2.tag) {
+    case "Boolean":
+    case "Number":
+      return ty1.tag === ty2.tag;
+    case "Func": {
+      if (ty1.tag !== "Func") {
+        return false;
+      }
+      for (let i = 0; i < ty1.params.length; i++) {
+        if (!typeEqNaive(ty1.params[i].type, ty2.params[i].type, map)) {
+          return false;
+        }
+      }
+      if (!typeEqNaive(ty1.retType, ty2.retType, map)) {
+        return false;
+      }
+      return true;
+    }
+    case "Object": {
+      if (ty1.tag !== "Object") {
+        return false;
+      }
+      if (ty1.props.length !== ty2.props.length) {
+        return false;
+      }
+      for (const prop1 of ty1.props) {
+        const prop2 = ty2.props.find((prop2) => prop1.name === prop2.name);
+        if (!prop2) {
+          return false;
+        }
+        if (!typeEqNaive(prop1.type, prop2.type, map)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    case "Rec": {
+      if (ty1.tag !== "Rec") {
+        return false;
+      }
+      const newMap = { ...map, [ty1.name]: ty2.name };
+      return typeEqNaive(ty1.type, ty2.type, newMap);
+    }
+    case "TypeVar": {
+      if (ty1.tag !== "TypeVar") {
+        return false;
+      }
+      if (typeof map[ty1.name] === "undefined") {
+        throw new Error(`unknown type variable: ${ty1.name}`);
+      }
+      return map[ty1.name] === ty2.name;
+    }
+  }
+}
+
 function typeEq(ty1: Type, ty2: Type): boolean | undefined {
   switch (ty2.tag) {
     case "Boolean":

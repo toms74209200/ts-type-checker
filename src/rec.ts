@@ -148,7 +148,18 @@ function typeEqNaive(
   }
 }
 
-function typeEq(ty1: Type, ty2: Type): boolean | undefined {
+function typeEqSub(ty1: Type, ty2: Type, seen: [Type, Type][]): boolean {
+  for (const [ty1_, ty2_] of seen) {
+    if (typeEqNaive(ty1_, ty1, {}) && typeEqNaive(ty2_, ty2, {})) {
+      return true;
+    }
+  }
+  if (ty1.tag === "Rec") {
+    return typeEqSub(simplifyType(ty1), ty2, [...seen, [ty1, ty2]]);
+  }
+  if (ty2.tag === "Rec") {
+    return typeEqSub(ty1, simplifyType(ty2), [...seen, [ty1, ty2]]);
+  }
   switch (ty2.tag) {
     case "Boolean":
       return ty1.tag === "Boolean";
@@ -162,11 +173,11 @@ function typeEq(ty1: Type, ty2: Type): boolean | undefined {
         return false;
       }
       for (let i = 0; i < ty1.params.length; i++) {
-        if (!typeEq(ty1.params[i].type, ty2.params[i].type)) {
+        if (!typeEqSub(ty1.params[i].type, ty2.params[i].type, seen)) {
           return false;
         }
       }
-      if (!typeEq(ty1.retType, ty2.retType)) {
+      if (!typeEqSub(ty1.retType, ty2.retType, seen)) {
         return false;
       }
       return true;
@@ -183,13 +194,19 @@ function typeEq(ty1: Type, ty2: Type): boolean | undefined {
         if (!prop1) {
           return false;
         }
-        if (!typeEq(prop1.type, prop2.type)) {
+        if (!typeEqSub(prop1.type, prop2.type, seen)) {
           return false;
         }
       }
       return true;
     }
+    case "TypeVar":
+      throw "unreachable";
   }
+}
+
+function typeEq(ty1: Type, ty2: Type): boolean {
+  return typeEqSub(ty1, ty2, []);
 }
 
 export function typecheck(t: Term, tyEnv: TypeEnv): Type {
@@ -237,7 +254,7 @@ export function typecheck(t: Term, tyEnv: TypeEnv): Type {
       return { tag: "Func", params: t.params, retType };
     }
     case "call": {
-      const funcTy = typecheck(t.func, tyEnv);
+      const funcTy = simplifyType(typecheck(t.func, tyEnv));
       if (funcTy.tag !== "Func") {
         throw new Error("function type expected");
       }
@@ -268,7 +285,7 @@ export function typecheck(t: Term, tyEnv: TypeEnv): Type {
       return { tag: "Object", props };
     }
     case "objectGet": {
-      const objecetTy = typecheck(t.obj, tyEnv);
+      const objecetTy = simplifyType(typecheck(t.obj, tyEnv));
       if (objecetTy.tag !== "Object") {
         throw new Error("object type expected");
       }

@@ -1,6 +1,6 @@
 import { expect } from "@std/expect";
 import { parseRec } from "tiny-ts-parser";
-import { simplifyType } from "./rec.ts";
+import { simplifyType, typecheck } from "./rec.ts";
 
 Deno.test("simplifyType", () => {
   const input = `
@@ -35,4 +35,20 @@ Deno.test("simplifyType", () => {
     name: "foo",
     type: { tag: "TypeVar", name: "X" },
   });
+});
+
+Deno.test("typecheck Rec", () => {
+  const input = `
+  type NumStream = { num: number, rest: () => NumStream };
+  function numbers(n: number): NumStream {
+    return { num: n, rest: () => numbers(n + 1) };
+  }
+  const ns1 = numbers(1);
+  const ns2 = (ns1.rest)();
+  const ns3 = (ns2.rest)();
+  ns3
+  `;
+
+  const actual = typecheck(parseRec(input), {});
+  expect(actual.tag).toBe("Rec");
 });

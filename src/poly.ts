@@ -54,6 +54,58 @@ export function subst(ty: Type, tyVarName: string, repTy: Type): Type {
   }
 }
 
+export function typeEqSub(
+  ty1: Type,
+  ty2: Type,
+  map: Record<string, string>,
+): boolean {
+  switch (ty2.tag) {
+    case "Boolean":
+      return ty1.tag === "Boolean";
+    case "Number":
+      return ty1.tag === "Number";
+    case "Func": {
+      if (ty1.tag !== "Func") {
+        return false;
+      }
+      if (ty1.params.length !== ty2.params.length) {
+        return false;
+      }
+      for (let i = 0; i < ty1.params.length; i++) {
+        if (!typeEqSub(ty1.params[i].type, ty2.params[i].type, map)) {
+          return false;
+        }
+      }
+      if (!typeEqSub(ty1.retType, ty2.retType, map)) {
+        return false;
+      }
+      return true;
+    }
+    case "TypeVar": {
+      if (ty1.tag !== "TypeVar") {
+        return false;
+      }
+      if (map[ty1.name] === undefined) {
+        throw new Error(`unknown type variable: ${ty1.name}`);
+      }
+      return map[ty1.name] === ty2.name;
+    }
+    case "TypeAbs": {
+      if (ty1.tag !== "TypeAbs") {
+        return false;
+      }
+      if (ty1.typeParams.length !== ty2.typeParams.length) {
+        return false;
+      }
+      const newMap = { ...map };
+      for (let i = 0; i < ty1.typeParams.length; i++) {
+        newMap[ty1.typeParams[i]] = ty2.typeParams[i];
+      }
+      return typeEqSub(ty1.type, ty2.type, newMap);
+    }
+  }
+}
+
 function typeEq(ty1: Type, ty2: Type): boolean {
   switch (ty2.tag) {
     case "Boolean":

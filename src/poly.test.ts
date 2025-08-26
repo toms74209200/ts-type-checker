@@ -1,6 +1,6 @@
 import { expect } from "@std/expect/expect";
-import { subst, typeEqSub } from "./poly.ts";
-import { Type } from "tiny-ts-parser";
+import { subst, typecheck, typeEqSub } from "./poly.ts";
+import { parsePoly, typeShow } from "tiny-ts-parser";
 
 Deno.test("subst", () => {
   const actual = subst(
@@ -51,4 +51,41 @@ Deno.test("typeEqSub", () => {
   };
 
   expect(typeEqSub(ty1, ty2, {})).toBeTruthy();
+});
+
+Deno.test("typecheck generics", () => {
+  const input = `const f = <T>(x: T) => x;
+  f`;
+
+  expect(typeShow(typecheck(parsePoly(input), {}, []))).toBe("<T>(x: T) => T");
+});
+
+Deno.test("typecheck generics annotated type", () => {
+  const input = `const f = <T>(x: T) => x;
+  f<number>`;
+
+  expect(typeShow(typecheck(parsePoly(input), {}, []))).toBe(
+    "(x: number) => number",
+  );
+});
+
+Deno.test("typecheck generics annotated select number", () => {
+  const input =
+    `const select = <T>(cond: boolean, a: T, b: T) => (cond ? a : b);
+    const selectNumber = select<number>;
+    selectNumber;`;
+
+  expect(typeShow(typecheck(parsePoly(input), {}, []))).toBe(
+    "(cond: boolean, a: number, b: number) => number",
+  );
+});
+
+Deno.test("typecheck generics annotated select boolean", () => {
+  const input =
+    `const select = <T>(cond: boolean, a: T, b: T) => (cond ? a : b);
+    const selectBoolean = select<boolean>;
+    selectBoolean;`;
+  expect(typeShow(typecheck(parsePoly(input), {}, []))).toBe(
+    "(cond: boolean, a: boolean, b: boolean) => boolean",
+  );
 });

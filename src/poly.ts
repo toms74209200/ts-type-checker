@@ -106,57 +106,40 @@ export function typeEqSub(
   }
 }
 
-function typeEq(ty1: Type, ty2: Type): boolean {
-  switch (ty2.tag) {
-    case "Boolean":
-      return ty1.tag === "Boolean";
-    case "Number":
-      return ty1.tag === "Number";
-    case "Func":
-      if (ty1.tag !== "Func") {
-        return false;
-      }
-      if (ty1.params.length !== ty2.params.length) {
-        return false;
-      }
-      for (let i = 0; i < ty1.params.length; i++) {
-        if (!typeEq(ty1.params[i].type, ty2.params[i].type)) {
-          return false;
-        }
-      }
-      if (!typeEq(ty1.retType, ty2.retType)) {
-        return false;
-      }
-      return true;
+function typeEq(ty1: Type, ty2: Type, tyVars: string[]): boolean {
+  const map: Record<string, string> = {};
+  for (const tyVar of tyVars) {
+    map[tyVar] = tyVar;
   }
+  return typeEqSub(ty1, ty2, map);
 }
 
-export function typecheck(t: Term, tyEnv: TypeEnv): Type {
+export function typecheck(t: Term, tyEnv: TypeEnv, tyVars: string[]): Type {
   switch (t.tag) {
     case "true":
       return { tag: "Boolean" };
     case "false":
       return { tag: "Boolean" };
     case "if": {
-      const condTy = typecheck(t.cond, tyEnv);
+      const condTy = typecheck(t.cond, tyEnv, tyVars);
       if (condTy.tag !== "Boolean") {
         throw new Error("boolean expected");
       }
-      const thnTy = typecheck(t.thn, tyEnv);
-      const elsTy = typecheck(t.els, tyEnv);
-      if (thnTy.tag !== elsTy.tag) {
-        throw new Error("then and else habe different types");
+      const thnTy = typecheck(t.thn, tyEnv, tyVars);
+      const elsTy = typecheck(t.els, tyEnv, tyVars);
+      if (!typeEq(thnTy, elsTy, tyVars)) {
+        throw new Error("then and else have different types");
       }
       return thnTy;
     }
     case "number":
       return { tag: "Number" };
     case "add": {
-      const leftTy = typecheck(t.left, tyEnv);
+      const leftTy = typecheck(t.left, tyEnv, tyVars);
       if (leftTy.tag !== "Number") {
         throw new Error("number expected");
       }
-      const rightTy = typecheck(t.right, tyEnv);
+      const rightTy = typecheck(t.right, tyEnv, tyVars);
       if (rightTy.tag !== "Number") {
         throw new Error("number expected");
       }
@@ -172,11 +155,11 @@ export function typecheck(t: Term, tyEnv: TypeEnv): Type {
       for (const { name, type } of t.params) {
         newTyEnv[name] = type;
       }
-      const retType = typecheck(t.body, newTyEnv);
+      const retType = typecheck(t.body, newTyEnv, tyVars);
       return { tag: "Func", params: t.params, retType };
     }
     case "call": {
-      const funcTy = typecheck(t.func, tyEnv);
+      const funcTy = typecheck(t.func, tyEnv, tyVars);
       if (funcTy.tag !== "Func") {
         throw new Error("function type expected");
       }
@@ -184,20 +167,46 @@ export function typecheck(t: Term, tyEnv: TypeEnv): Type {
         throw new Error("wrong number of arguments");
       }
       for (let i = 0; i < t.args.length; i++) {
-        const argTy = typecheck(t.args[i], tyEnv);
-        if (!typeEq(argTy, funcTy.params[i].type)) {
+        const argTy = typecheck(t.args[i], tyEnv, tyVars);
+        if (!typeEq(argTy, funcTy.params[i].type, tyVars)) {
           throw new Error("parameter type mismatch");
         }
       }
       return funcTy.retType;
     }
     case "seq":
-      typecheck(t.body, tyEnv);
-      return typecheck(t.rest, tyEnv);
+      typecheck(t.body, tyEnv, tyVars);
+      return typecheck(t.rest, tyEnv, tyVars);
     case "const": {
-      const ty = typecheck(t.init, tyEnv);
+      const ty = typecheck(t.init, tyEnv, tyVars);
       const newTyEnv = { ...tyEnv, [t.name]: ty };
-      return typecheck(t.rest, newTyEnv);
+      return typecheck(t.rest, newTyEnv, tyVars);
+    }
+    case "typeAbs": {
+      const tyVars2 = [...tyVars];
+      for (const tyVar of t.typeParams) {
+        tyVars2.push(tyVar);
+      }
+      const bodyTy = typecheck(t.body, tyEnv, tyVars2);
+      return {
+        tag: "TypeAbs",
+        typeParams: t.typeParams,
+        type: bodyTy,
+      };
+    }
+    case "typeApp": {
+      const bodyTy = typecheck(t.typeAbs, tyEnv, tyVars);
+      if (bodyTy.tag !== "TypeAbs") {
+        throw new Error("type abstraction expected");
+      }
+      if (bodyTy.typeParams.length !== t.typeArgs.length) {
+        throw new Error("wrong number of type arguments");
+      }
+      let newTy = bodyTy.type;
+      for (let i = 0; i < bodyTy.typeParams.length; i++) {
+        newTy = subst(newTy, bodyTy.typeParams[i], t.typeArgs[i]);
+      }
+      return newTy;
     }
   }
 }

@@ -89,3 +89,11 @@ Deno.test("typecheck generics annotated select boolean", () => {
     "(cond: boolean, a: boolean, b: boolean) => boolean",
   );
 });
+
+Deno.test("typecheck generics shadowing", () => {
+  const input = `const foo = <T>(arg1: T, arg2: <T>(x: T) => boolean) => true;
+  foo<number>`;
+  expect(typeShow(typecheck(parsePoly(input), {}, []))).toBe(
+    "(arg1: number, arg2: <T>(x: T) => boolean) => boolean",
+  );
+});

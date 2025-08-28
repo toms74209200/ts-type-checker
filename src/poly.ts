@@ -46,6 +46,9 @@ export function subst(ty: Type, tyVarName: string, repTy: Type): Type {
       return { tag: "Func", params, retType };
     }
     case "TypeAbs": {
+      if (ty.typeParams.includes(tyVarName)) {
+        return ty;
+      }
       const newType = subst(ty.type, tyVarName, repTy);
       return { tag: "TypeAbs", typeParams: ty.typeParams, type: newType };
     }

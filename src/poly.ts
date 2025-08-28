@@ -32,6 +32,18 @@ type Term =
   | { tag: "typeAbs"; typeParams: string[]; body: Term }
   | { tag: "typeApp"; typeAbs: Term; typeArgs: Type[] };
 
+let freshTyVarId = 1;
+function freshTypeAbs(typeParams: string[], ty: Type) {
+  let newType = ty;
+  const newTypeParams = [];
+  for (const tyVar of typeParams) {
+    const newTyVar = `${tyVar}@${freshTyVarId++}`;
+    newType = subst(newType, tyVar, { tag: "TypeVar", name: newTyVar });
+    newTypeParams.push(newTyVar);
+  }
+  return { newType, newTypeParams };
+}
+
 export function subst(ty: Type, tyVarName: string, repTy: Type): Type {
   switch (ty.tag) {
     case "Boolean":
@@ -49,8 +61,9 @@ export function subst(ty: Type, tyVarName: string, repTy: Type): Type {
       if (ty.typeParams.includes(tyVarName)) {
         return ty;
       }
-      const newType = subst(ty.type, tyVarName, repTy);
-      return { tag: "TypeAbs", typeParams: ty.typeParams, type: newType };
+      const { newTypeParams, newType } = freshTypeAbs(ty.typeParams, ty.type);
+      const newType2 = subst(newType, tyVarName, repTy);
+      return { tag: "TypeAbs", typeParams: newTypeParams, type: newType2 };
     }
     case "TypeVar":
       return ty.name === tyVarName ? repTy : ty;

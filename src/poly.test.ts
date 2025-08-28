@@ -97,3 +97,13 @@ Deno.test("typecheck generics shadowing", () => {
     "(arg1: number, arg2: <T>(x: T) => boolean) => boolean",
   );
 });
+
+Deno.test("typecheck generics capture", () => {
+  const input =
+    `const foo = <T>(arg1: T, arg2: <U>(x: T, y: U) => boolean) => true;
+    const bar = <U>() => foo<U>;`;
+
+  expect(typeShow(typecheck(parsePoly(input), {}, []))).toBe(
+    "<U>() => (arg1: U, arg2: <U@1>(x: U, y: U@1) => boolean) => boolean",
+  );
+});
